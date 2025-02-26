@@ -1,32 +1,58 @@
 import pandas as pd
-msg = pd.read_csv(r"./datasets/5.csv", 										names=['message', 'label'])
-print("Total Instances of Dataset: ", msg.shape[0])
-msg['labelnum'] = msg.label.map({'pos': 1, 'neg': 0})
-
-X = msg.message
-y = msg.labelnum
 from sklearn.model_selection import train_test_split
-Xtrain, Xtest, ytrain, ytest = train_test_split(X, y)
 from sklearn.feature_extraction.text import CountVectorizer
-
-count_v = CountVectorizer()
-Xtrain_dm = count_v.fit_transform(Xtrain)
-Xtest_dm = count_v.transform(Xtest)
-
-df = pd.DataFrame(Xtrain_dm.toarray(),columns=count_v.get_feature_names_out())
-print(df[0:5])
-
 from sklearn.naive_bayes import MultinomialNB
-clf = MultinomialNB()
-clf.fit(Xtrain_dm, ytrain)
-pred = clf.predict(Xtest_dm)
-
-for doc, p in zip(Xtrain, pred):
-    p = 'pos' if p == 1 else 'neg'
-    print("%s -> %s" % (doc, p))
 from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, recall_score
-print('Accuracy Metrics: \n')
-print('Accuracy: ', accuracy_score(ytest, pred))
-print('Recall: ', recall_score(ytest, pred))
-print('Precision: ', precision_score(ytest, pred))
-print('Confusion Matrix: \n', confusion_matrix(ytest, pred))
+
+# Load dataset
+msg = pd.read_csv("./datasets/5.csv", names=['message', 'label'])
+print("Total Instances of Dataset:", msg.shape[0])
+
+# Ensure no whitespace issues in labels
+msg['label'] = msg['label'].str.strip()
+
+# Convert labels to numerical values
+msg['labelnum'] = msg['label'].map({'pos': 1, 'neg': 0})
+
+# Check for NaN values and drop them
+print("Rows with NaN labelnum:", msg[msg['labelnum'].isna()])
+msg = msg.dropna(subset=['labelnum'])
+msg['labelnum'] = msg['labelnum'].astype(int)
+
+# Split dataset
+X = msg['message']
+y = msg['labelnum']
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Feature extraction
+count_vectorizer = CountVectorizer()
+X_train_dm = count_vectorizer.fit_transform(X_train)
+X_test_dm = count_vectorizer.transform(X_test)
+
+# Convert to DataFrame for better visualization
+df = pd.DataFrame(X_train_dm.toarray(), columns=count_vectorizer.get_feature_names_out())
+print(df.head())
+
+# Train Naive Bayes classifier
+clf = MultinomialNB()
+clf.fit(X_train_dm, y_train)
+
+# Make predictions
+pred = clf.predict(X_test_dm)
+
+# Debugging output for y_test and predictions
+print("y_test contains NaN values:", y_test.isna().sum())
+print("Unique y_test values:", y_test.unique())
+
+# Display predictions
+for doc, p in zip(X_test, pred):
+    label = 'pos' if p == 1 else 'neg'
+    print(f"{doc} -> {label}")
+
+# Evaluate model
+print('\nAccuracy Metrics:')
+print('Accuracy:', accuracy_score(y_test, pred))
+print('Recall:', recall_score(y_test, pred))
+# print('Precision:', precision_score(y_test, pred))
+print('Precision:', precision_score(y_test, pred, zero_division=1))
+print('Confusion Matrix:\n', confusion_matrix(y_test, pred))
